@@ -32,8 +32,8 @@ class ParallelData(Iterator):
             self.trg_file = trg_file
 
             # Check that inputs are not None.
-            assert Path(self.src_file).exists(), f"File {src_file} does not exist"
-            assert Path(self.trg_file).exists(), f"File {trg_file} does not exist"
+            assert Path(self.src_file).exists(), "File {src_file} does not exist".format(src_file=src_file)
+            assert Path(self.trg_file).exists(), "File {trg_file} does not exist".format(trg_file=trg_file)
 
             # Initialize the start, end and unknown symbols.
             self.START, self.START_IDX = start_symbol, 0
@@ -139,7 +139,7 @@ class ParallelData(Iterator):
         :param save_counter: Whether to save the src and trg bounter objects.
         :type save_counter: bool
         """
-        print(f'Saving ParallelData to {saveto}', end=' ', file=sys.stderr)
+        print("Saving ParallelData to {saveto}".format(saveto=saveto), end=' ', file=sys.stderr)
         # Create the directory if it doesn't exist.
         if not Path(saveto).exists():
             os.makedirs(saveto)
