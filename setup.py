@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
   name = 'komorebi',
   packages = ['komorebi'],
-  version = '0.0.1',
+  version = '0.0.2',
   description = 'Parallel Data API',
   author = 'Liling Tan',
   license = 'MIT',
