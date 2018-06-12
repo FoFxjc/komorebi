@@ -26,6 +26,36 @@ class ParallelData(Iterator):
                  start_symbol='<s>', end_symbol='</s>', unknown_symbol='UNK',
                  filter_on='tf', prune_at=10**10,
                  **kwargs):
+        """
+        This is the object to store parallel text and read them into PyTorch
+        Variable. The object is an iterable that yields tuples of the PyTorch
+        Variables, one from the source sentence, another from the target.
+
+        :param src_file: Textfile that contains source sentences.
+        :type src_file: str
+        :param trg_file: Textfile that contains target sentences.
+        :type trg_file: str
+        :param src_vocab_size: Max no. of words to keep in the source vocab.
+        :type src_vocab_size: int
+        :param trg_vocab_size: Max no. of words to keep in the target vocab.
+        :type trg_vocab_size: int
+        :param chunk_size: Use to limit no. of sentences to load at a time when populating the vocabulary.
+        :type chunk_size: int
+        :param delimiter: Delimiter to split on when "tokenizing"
+        :type delimiter: str
+        :param size_mb: Memory footprint of the bounter object use to count the vocab.
+        :type size_mb: int
+        :param start_symbol: Start symbol use for padding.
+        :type start_symbol: str
+        :param end_symbol: End symbol use for padding.
+        :type end_symbol: str
+        :param unknown_symbol: Unknown symbol for OOV words.
+        :type unknown_symbol: str
+        :param filter_on: Option to filter on term-freq ('tf') or doc-freq ('df')
+        :type filter_on: str
+        :param prune_at: *prune_at* parameter used by gensim.Dictionary
+        :type prune_at: int
+        """
 
         if 'loadfrom' not in kwargs: # Creating.
             self.src_file = src_file
