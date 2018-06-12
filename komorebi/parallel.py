@@ -16,7 +16,7 @@ import torch
 from torch import LongTensor
 from torch.autograd import Variable
 
-from komorebi.util import per_chunk, timing
+from komorebi.util import absolute_path, per_chunk, timing
 
 class ParallelData(Iterator):
     def __init__(self,
