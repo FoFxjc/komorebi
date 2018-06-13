@@ -3,6 +3,7 @@
 import json
 import os
 import pickle
+import random
 import sys
 
 from collections import Iterator
@@ -61,14 +62,14 @@ class ParallelData(Iterator):
         if 'loadfrom' not in kwargs: # Creating.
             self.src_file = src_file
             self.trg_file = trg_file
-            
+
             # Check that inputs are not None.
             assert Path(self.src_file).exists(), "File {src_file} does not exist".format(src_file=src_file)
             assert Path(self.trg_file).exists(), "File {trg_file} does not exist".format(trg_file=trg_file)
-            
+
             # Initialize encoding.
             self.encoding = encoding
-            
+
             # Initialize the start, end and unknown symbols.
             self.START, self.START_IDX = start_symbol, 0
             self.END, self.END_IDX = end_symbol, 1
@@ -305,3 +306,6 @@ class ParallelData(Iterator):
 
     def __next__(self):
         return next(self.iterable)
+
+    def shuffle(self):
+        return iter(sorted(self, key=lambda k: random.random()))
