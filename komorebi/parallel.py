@@ -8,6 +8,7 @@ import sys
 from collections import Iterator
 from itertools import chain
 from pathlib import Path
+from operator import itemgetter
 
 from gensim.corpora.dictionary import Dictionary
 from bounter import bounter
@@ -24,7 +25,7 @@ class ParallelData(Iterator):
                  src_vocab_size=10**5, trg_vocab_size=10**5,
                  chunk_size=10**5, delimiter=None, size_mb=4024,
                  start_symbol='<s>', end_symbol='</s>', unknown_symbol='UNK',
-                 filter_on='tf', prune_at=10**10,
+                 filter_on='tf', prune_at=10**10, encoding='utf8',
                  **kwargs):
         """
         This is the object to store parallel text and read them into PyTorch
@@ -60,11 +61,14 @@ class ParallelData(Iterator):
         if 'loadfrom' not in kwargs: # Creating.
             self.src_file = src_file
             self.trg_file = trg_file
-
+            
             # Check that inputs are not None.
             assert Path(self.src_file).exists(), "File {src_file} does not exist".format(src_file=src_file)
             assert Path(self.trg_file).exists(), "File {trg_file} does not exist".format(trg_file=trg_file)
-
+            
+            # Initialize encoding.
+            self.encoding = encoding
+            
             # Initialize the start, end and unknown symbols.
             self.START, self.START_IDX = start_symbol, 0
             self.END, self.END_IDX = end_symbol, 1
@@ -145,9 +149,9 @@ class ParallelData(Iterator):
             with open(config_file) as fin:
                 self.__dict__ = json.load(fin)
 
-            with open(self.src_vocab, 'rb') as fin:
+            with open(self.src_vocab, 'rb', encoding=self.encoding) as fin:
                 self.src_vocab = pickle.load(fin)
-            with open(self.trg_vocab, 'rb') as fin:
+            with open(self.trg_vocab, 'rb', encoding=self.encoding) as fin:
                 self.trg_vocab = pickle.load(fin)
 
             if load_counter:
@@ -182,7 +186,7 @@ class ParallelData(Iterator):
         # Initialize the config file.
         config_json = {'src_file': absolute_path(self.src_file),
                        'trg_file': absolute_path(self.trg_file),
-                       'delimiter': self.delimiter,
+                       'delimiter': self.delimiter, 'encoding': self.encoding,
                        'START': self.START, 'START_IDX': self.START_IDX,
                        'END': self.END, 'END_IDX': self.END_IDX,
                        'UNK': self.UNK, 'UNK_IDX': self.UNK_IDX,
@@ -221,7 +225,7 @@ class ParallelData(Iterator):
 
     @timing
     def populate_dictionary(self, filename, vocab, counter, chunk_size):
-        with open(filename) as trg_fin:
+        with open(filename, encoding=self.encoding) as trg_fin:
             for chunk in per_chunk(trg_fin, chunk_size):
                 if all(c == None for c in chunk): break;
                 chunk_list_of_tokens = [self.split_tokens(s) for s in chunk if s]
