@@ -146,9 +146,9 @@ class ParallelData(Iterator):
             with open(config_file) as fin:
                 self.__dict__ = json.load(fin)
 
-            with open(self.src_vocab, 'rb') as fin:
+            with open(self.src_vocab, 'rb', encoding='utf-8') as fin:
                 self.src_vocab = pickle.load(fin)
-            with open(self.trg_vocab, 'rb') as fin:
+            with open(self.trg_vocab, 'rb', encoding='utf-8') as fin:
                 self.trg_vocab = pickle.load(fin)
 
             if load_counter:
@@ -222,7 +222,7 @@ class ParallelData(Iterator):
 
     @timing
     def populate_dictionary(self, filename, vocab, counter, chunk_size):
-        with open(filename) as trg_fin:
+        with open(filename, encoding='utf-8') as trg_fin:
             for chunk in per_chunk(trg_fin, chunk_size):
                 if all(c == None for c in chunk): break;
                 chunk_list_of_tokens = [self.split_tokens(s) for s in chunk if s]
