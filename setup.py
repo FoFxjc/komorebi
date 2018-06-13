@@ -11,4 +11,5 @@ setup(
   url = 'https://github.com/alvations/komorebi',
   keywords = [],
   classifiers = [],
+  install_requires = ['gensim', 'torch', 'bounter', 'pathlib']
 )
