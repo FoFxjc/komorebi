@@ -8,6 +8,7 @@ import sys
 from collections import Iterator
 from itertools import chain
 from pathlib import Path
+from operator import itemgetter
 
 from gensim.corpora.dictionary import Dictionary
 from bounter import bounter
