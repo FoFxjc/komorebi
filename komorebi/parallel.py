@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import heapq
+import itertools
 import json
 import os
 import pickle
@@ -287,25 +289,42 @@ class ParallelData(Iterator):
         result = Variable(LongTensor(vsent).view(-1, 1))
         return result.cuda() if self.use_cuda else result
 
+    def unvectorize(self, vector, vocab, unpad_left=True, unpad_right=True):
+        """
+        Convert the vector to the natural text sentence.
+        """
+        return ' '.join([vocab[idx] for idx in
+                         map(int,chain(*vector))][unpad_left:-unpad_right])
+
     def reset(self):
         """
         Resets the iterator to the 0th item.
         """
         self.iterable = self._iterate()
 
+    def lines(self):
+        """
+        The function to iterate through the source and target file.
+        """
+        with open(self.src_file) as src_fin, open(self.trg_file) as trg_fin:
+            for src_line, trg_line in zip(src_fin, trg_fin):
+                yield src_line.strip(), trg_line.strip()
+
     def _iterate(self):
         """
         The helper function to iterate through the source and target file
         and convert the lines into PyTorch variables.
         """
-        with open(self.src_file) as src_fin, open(self.trg_file) as trg_fin:
-            for src_line, trg_line in zip(src_fin, trg_fin):
-                src_sent = self.variable_from_sent(src_line, self.src_vocab)
-                trg_sent = self.variable_from_sent(trg_line, self.trg_vocab)
-                yield src_sent, trg_sent
+        for src_line, trg_line in self.lines():
+            src_sent = self.variable_from_sent(src_line, self.src_vocab)
+            trg_sent = self.variable_from_sent(trg_line, self.trg_vocab)
+            yield src_sent, trg_sent
 
     def __next__(self):
         return next(self.iterable)
 
     def shuffle(self):
         return iter(sorted(self, key=lambda k: random.random()))
+
+    def batch(self, size=1):
+        return itertools.islice

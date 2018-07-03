@@ -11,6 +11,9 @@ Usage
 
 
 ```python
+$ cut -f1 data/kopitiam/kopitiam.tsv | tail -n +2 > kopitiam.sg
+$ cut -f2 data/kopitiam/kopitiam.tsv | tail -n +2 > kopitiam.en
+
 >>> from komorebi import ParallelData
 
 >>> sgfile = 'data/kopitiam/kopitiam.sg'
