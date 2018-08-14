@@ -6,6 +6,7 @@ from torch.autograd import Variable
 
 from komorebi.parallel import ParallelData
 
+
 class TorchParallelData(ParallelData):
     def __init__(self, *args, **kwargs):
         super(TorchParallelData, self).__init__(*args, **kwargs)
@@ -15,16 +16,22 @@ class TorchParallelData(ParallelData):
         else:
             self.use_cuda = torch.cuda.is_available()
 
-    def variable_from_sent(self, sent, vocab):
+    def create_variable(self, array_1d):
         """
         Create the PyTorch variable given a sentence
 
-        :param sent: The input sentence to convert to PyTorch Variable
-        :type sent: list(str) or str
-        :param vocab: self.src_vocab or self.trg_vocab
-        :type vocab: gensim.Dictionary
+        :param array_1d: Input 1D array of vocab indices.
+        :type array_1d: list(int)
         """
-        sent = self.split_tokens(sent) if type(sent) == str else sent
-        vsent = self.vectorize_sent(sent, vocab)
-        result = Variable(LongTensor(vsent).view(-1, 1))
+        result = Variable(LongTensor(array_1d).view(-1, 1))
         return result.cuda() if self.use_cuda else result
+
+    def _iterate(self):
+        """
+        The helper function to iterate through the source and target file
+        and convert the lines into vocabulary indices.
+        """
+        for src_line, trg_line in zip(self.src_data.lines(), self.trg_data.lines()):
+            src_sent = self.create_variable(self.src_data.variable_from_sent(src_line, self.src_data.vocab))
+            trg_sent = self.create_variable(self.trg_data.variable_from_sent(trg_line, self.trg_data.vocab))
+            yield src_sent, trg_sent
