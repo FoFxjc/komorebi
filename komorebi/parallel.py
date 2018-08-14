@@ -16,10 +16,6 @@ from operator import itemgetter
 from gensim.corpora.dictionary import Dictionary
 from bounter import bounter
 
-import torch
-from torch import LongTensor
-from torch.autograd import Variable
-
 from komorebi.util import absolute_path, per_chunk, timing
 
 class ParallelData(Iterator):
@@ -31,9 +27,9 @@ class ParallelData(Iterator):
                  filter_on='tf', prune_at=10**10, encoding='utf8',
                  **kwargs):
         """
-        This is the object to store parallel text and read them into PyTorch
-        Variable. The object is an iterable that yields tuples of the PyTorch
-        Variables, one from the source sentence, another from the target.
+        This is the object to store parallel text and read them into vocabulary
+        indices. The object is an iterable that yields tuples of the vocabulary
+        indices, one from the source sentence, another from the target.
 
         :param src_file: Textfile that contains source sentences.
         :type src_file: str
@@ -125,12 +121,6 @@ class ParallelData(Iterator):
         else: # Loading.
             self.load(kwargs['loadfrom'], kwargs.get('load_counter', False))
             self.iterable = self._iterate()
-
-        # PyTorch nonsense with CUDA... -_-|||
-        if 'use_cuda' in kwargs:
-            self.use_cuda = kwargs['use_cuda']
-        else:
-            self.use_cuda = torch.cuda.is_available()
 
 
     @timing
@@ -258,7 +248,7 @@ class ParallelData(Iterator):
         Vectorize the sentence, converts it into a list of the indices based on
         the vocabulary. This is used by the `variable_from_sent()`.
 
-        :param sent: The input sentence to convert to PyTorch Variable
+        :param sent: The input sentence to convert to vocabulary indices
         :type sent: list(str)
         :param vocab: self.src_vocab or self.trg_vocab
         :type vocab: gensim.Dictionary
@@ -277,17 +267,16 @@ class ParallelData(Iterator):
 
     def variable_from_sent(self, sent, vocab):
         """
-        Create the PyTorch variable given a sentence
+        Create the vocaburly indices given a sentence
 
-        :param sent: The input sentence to convert to PyTorch Variable
+        :param sent: The input sentence to convert to vocaburly indices
         :type sent: list(str) or str
         :param vocab: self.src_vocab or self.trg_vocab
         :type vocab: gensim.Dictionary
         """
         sent = self.split_tokens(sent) if type(sent) == str else sent
         vsent = self.vectorize_sent(sent, vocab)
-        result = Variable(LongTensor(vsent).view(-1, 1))
-        return result.cuda() if self.use_cuda else result
+        return vsent
 
     def unvectorize(self, vector, vocab, unpad_left=True, unpad_right=True):
         """
@@ -313,7 +302,7 @@ class ParallelData(Iterator):
     def _iterate(self):
         """
         The helper function to iterate through the source and target file
-        and convert the lines into PyTorch variables.
+        and convert the lines into vocabulary indices.
         """
         for src_line, trg_line in self.lines():
             src_sent = self.variable_from_sent(src_line, self.src_vocab)

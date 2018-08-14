@@ -14,7 +14,7 @@ Usage
 $ cut -f1 data/kopitiam/kopitiam.tsv | tail -n +2 > kopitiam.sg
 $ cut -f2 data/kopitiam/kopitiam.tsv | tail -n +2 > kopitiam.en
 
->>> from komorebi import ParallelData
+>>> from komorebi import TorchParallelData as ParallelData
 
 >>> sgfile = 'data/kopitiam/kopitiam.sg'
 >>> enfile = 'data/kopitiam/kopitiam.en'
