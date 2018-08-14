@@ -34,3 +34,7 @@ def timing(f, output_to=sys.stderr, **kwargs):
 
 def absolute_path(path):
     return str(Path(path).resolve())
+
+
+class DataError(Exception):
+    pass
