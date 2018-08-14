@@ -140,13 +140,14 @@ Loading ParallelData from kopital-data/ParallelData.json load took 00:00:00
 **Shuffling the data**
 
 ```python
->>> from komorebi import ParallelData
+>>> from komorebi import TorchParallelData as ParallelData
 >>> sgfile = 'data/kopitiam/kopitiam.sg'
 >>> enfile = 'data/kopitiam/kopitiam.en'
 >>> x = ParallelData(sgfile, enfile)
 Building source vocab and counter... populate_dictionary took 00:00:00
 Building target vocab and counter... populate_dictionary took 00:00:00
-Filtering least frequent words in vocab. >>>
+Filtering least frequent words in vocab.
+
 >>>
 >>> for sg, en in x.shuffle():
 ...     print(sg)
