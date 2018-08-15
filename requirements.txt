@@ -2,3 +2,4 @@ pathlib
 bounter
 gensim
 torch
+tqdm

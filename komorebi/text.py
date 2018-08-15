@@ -13,6 +13,8 @@ from itertools import chain
 from pathlib import Path
 from operator import itemgetter
 
+from tqdm import tqdm
+
 from gensim.corpora.dictionary import Dictionary
 from bounter import bounter
 
@@ -78,6 +80,7 @@ class TextData(Iterator):
             self.vocab_size = vocab_size
 
             # Populate the source vocabulary.
+            print('Creating Vocabulary...', end='\n', file=sys.stderr)
             self.vocab = Dictionary([[start_symbol], [end_symbol], [unknown_symbol]],
                                      prune_at=self.prune_at)
             self.counter = bounter(size_mb=size_mb)
@@ -185,8 +188,8 @@ class TextData(Iterator):
 
     @timing
     def populate_dictionary(self, filename, vocab, counter, chunk_size):
-        with open(filename, encoding=self.encoding) as trg_fin:
-            for chunk in per_chunk(trg_fin, chunk_size):
+        with open(filename, encoding=self.encoding) as fin:
+            for chunk in tqdm(per_chunk(fin, chunk_size)):
                 if all(c == None for c in chunk): break;
                 chunk_list_of_tokens = [self.split_tokens(s) for s in chunk if s]
                 vocab.add_documents(chunk_list_of_tokens, self.prune_at)
