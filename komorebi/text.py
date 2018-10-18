@@ -23,16 +23,15 @@ from komorebi.util import DataError
 
 class TextData(Iterator):
     def __init__(self,
-                 filename=None, vocab_size=10**5,
-                 chunk_size=10**5, delimiter=None, size_mb=4024,
-                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='UNK',
+                 filename=None, vocab_size=10**5, max_len=None,
+                 chunk_size=10**5, delimiter=None, size_mb=4024, pad_symbol='<pad>',
+                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='<unk>',
                  filter_on='tf', prune_at=10**10, encoding='utf8',
                  **kwargs):
         """
         This is the object to store text and read them into vocabulary
         indices. The object is an iterable that yields vocabulary indices of the
         tokens in the sentences.
-
         :param filename: Textfile that contains source sentences.
         :type filename: str
         :param vocab_size: Max no. of words to keep in the source vocab.
@@ -65,10 +64,11 @@ class TextData(Iterator):
             # Initialize encoding.
             self.encoding = encoding
 
-            # Initialize the start, end and unknown symbols.
-            self.START, self.START_IDX = start_symbol, 0
-            self.END, self.END_IDX = end_symbol, 1
-            self.UNK, self.UNK_IDX = unknown_symbol, 2
+            # Initialize the pad, start, end and unknown symbols.
+            self.PAD, self.PAD_IDX = pad_symbol, 0
+            self.START, self.START_IDX = start_symbol, 1
+            self.END, self.END_IDX = end_symbol, 2
+            self.UNK, self.UNK_IDX = unknown_symbol, 3
 
             # Save the user-specific delimiter
             self.delimiter = delimiter
@@ -97,7 +97,7 @@ class TextData(Iterator):
             elif filter_on == 'df':
                 self.vocab.filter_extremes(no_below=1, no_above=self.prune_at,
                                                keep_n=self.vocab_size,
-                                               keep_tokens=['<s>', '</s>', 'UNK'])
+                                               keep_tokens=['<pad>', '<s>', '</s>', '<unk>'])
 
             self.iterable = self._iterate()
 
@@ -106,12 +106,10 @@ class TextData(Iterator):
             self.iterable = self._iterate()
 
 
-
     @timing
     def load(self, loadfrom, load_counter=False):
         """
         The load function.
-
         :param loadfrom: The path to load the directory for the ParallelData.
         :type loadfrom: str
         :param load_counter: Whether to load the src and trg bounter objects.
@@ -139,7 +137,6 @@ class TextData(Iterator):
     def save(self, saveto, save_counter=False):
         """
         The save function.
-
         :param saveto: The path to save the directory for the TextData.
         :type saveto: str
         :param save_counter: Whether to save the bounter objects.
@@ -156,6 +153,7 @@ class TextData(Iterator):
         # Initialize the config file.
         config_json = {'filename': absolute_path(self.filename),
                        'delimiter': self.delimiter, 'encoding': self.encoding,
+                       'PAD': self.PAD, 'PAD_IDX': self.PAD_IDX,
                        'START': self.START, 'START_IDX': self.START_IDX,
                        'END': self.END, 'END_IDX': self.END_IDX,
                        'UNK': self.UNK, 'UNK_IDX': self.UNK_IDX,
@@ -177,7 +175,6 @@ class TextData(Iterator):
         """
         A "tokenizer" that splits on space. If the delimiter is set to an empty
         string, it will read characters as tokens.
-
         :param s: The input string.
         :type s: str
         """
@@ -198,7 +195,6 @@ class TextData(Iterator):
     def filter_n_least_frequent(self, vocab, counter, n):
         """
         Remove the least frequent items form the vocabulary.
-
         :param vocab: self.src_vocab or self.trg_vocab
         :type vocab: gensim.Dictionary
         :param counter: self.src_counter or self.trg_counter
@@ -217,7 +213,6 @@ class TextData(Iterator):
         """
         Vectorize the sentence, converts it into a list of the indices based on
         the vocabulary. This is used by the `variable_from_sent()`.
-
         :param sent: The input sentence to convert to vocabulary indices
         :type sent: list(str)
         :param vocab: self.src_vocab or self.trg_vocab
@@ -238,7 +233,6 @@ class TextData(Iterator):
     def variable_from_sent(self, sent, vocab):
         """
         Create the vocaburly indices given a sentence
-
         :param sent: The input sentence to convert to vocaburly indices
         :type sent: list(str) or str
         :param vocab: self.src_vocab or self.trg_vocab

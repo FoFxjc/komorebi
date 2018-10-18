@@ -21,15 +21,14 @@ class ParallelData(Iterator):
     def __init__(self,
                  src_file=None, trg_file=None,
                  src_vocab_size=10**5, trg_vocab_size=10**5,
-                 chunk_size=10**5, delimiter=None, size_mb=4024,
-                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='UNK',
+                 chunk_size=10**5, delimiter=None, size_mb=4024, pad_symbol='<pad>',
+                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='<unk>',
                  filter_on='tf', prune_at=10**10, encoding='utf8',
                  **kwargs):
         """
         This is the object to store parallel text and read them into vocabulary
         indices. The object is an iterable that yields tuples of the vocabulary
         indices, one from the source sentence, another from the target.
-
         :param src_file: Textfile that contains source sentences.
         :type src_file: str
         :param trg_file: Textfile that contains target sentences.
@@ -72,7 +71,6 @@ class ParallelData(Iterator):
     def load(self, loadfrom, load_counter=False):
         """
         The load function.
-
         :param loadfrom: The path to load the directory for the ParallelData.
         :type loadfrom: str
         :param load_counter: Whether to load the src and trg bounter objects.
@@ -98,7 +96,6 @@ class ParallelData(Iterator):
     def save(self, saveto, save_counter=False):
         """
         The save function.
-
         :param saveto: The path to save the directory for the ParallelData.
         :type saveto: str
         :param save_counter: Whether to save the src and trg bounter objects.
