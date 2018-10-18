@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
   name = 'komorebi',
   packages = ['komorebi'],
-  version = '0.0.6',
+  version = '0.0.7',
   description = 'Text Data API',
   author = 'Liling Tan',
   license = 'MIT',
