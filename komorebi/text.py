@@ -8,6 +8,7 @@ import pickle
 import random
 import sys
 
+from shutil import copyfile
 from collections import Iterator
 from itertools import chain
 from pathlib import Path
@@ -23,10 +24,10 @@ from komorebi.util import DataError
 
 class TextData(Iterator):
     def __init__(self,
-                 filename=None, vocab_size=10**5, max_len=None,
+                 filename=None, vocab_size=None, max_len=None,
                  chunk_size=10**5, delimiter=None, size_mb=4024, pad_symbol='<pad>',
                  start_symbol='<s>', end_symbol='</s>', unknown_symbol='<unk>',
-                 filter_on='tf', prune_at=10**10, encoding='utf8',
+                 filter_on=None, prune_at=10**10, encoding='utf8',
                  **kwargs):
         """
         This is the object to store text and read them into vocabulary
@@ -53,10 +54,9 @@ class TextData(Iterator):
         :param prune_at: *prune_at* parameter used by gensim.Dictionary
         :type prune_at: int
         """
-
         if 'loadfrom' not in kwargs: # Creating.
 
-            self.filename = filename
+            self.filename = absolute_path(filename)
 
             # Check that inputs are not None.
             assert Path(self.filename).exists(), "File {filename} does not exist".format(filename=filename)
@@ -76,45 +76,55 @@ class TextData(Iterator):
             # Gensim related attribute to keep the pruning cap.
             self.prune_at = prune_at
 
-            # Save the user-specified source/target vocab size.
-            self.vocab_size = vocab_size
-
             # Populate the source vocabulary.
             print('Creating Vocabulary...', end='\n', file=sys.stderr)
-            self.vocab = Dictionary([[start_symbol], [end_symbol], [unknown_symbol]],
+            self.vocab = Dictionary([[pad_symbol], [start_symbol], [end_symbol], [unknown_symbol]],
                                      prune_at=self.prune_at)
             self.counter = bounter(size_mb=size_mb)
+
             print('Building source vocab and counter...', end=' ', file=sys.stderr)
             self.populate_dictionary(self.filename, self.vocab,
                                      self.counter, chunk_size)
+            # Use the user-specified source/target vocab size if set,
+            # else use the full vocab_size.
+            self.vocab_size = min(len(self.vocab), vocab_size) if vocab_size else len(self.vocab)
 
             # Keep the vocabulary to a max set by user.
-            print('Filtering least frequent words in vocab.', end='\n', file=sys.stderr)
-            if filter_on == 'tf':
-                self.filter_n_least_frequent(self.vocab,
-                                             self.counter,
-                                             self.vocab_size)
-            elif filter_on == 'df':
-                self.vocab.filter_extremes(no_below=1, no_above=self.prune_at,
+            if filter_on and self.vocab_size < len(self.vocab):
+                print('Filtering least frequent words in vocab.', end='\n', file=sys.stderr)
+                if filter_on == 'tf':
+                    self.filter_n_least_frequent(self.vocab,
+                                                 self.counter,
+                                                 self.vocab_size,
+                                                 keep_tokens=['<pad>', '<s>', '</s>', '<unk>'])
+                elif filter_on == 'df':
+                    self.vocab.filter_extremes(no_below=1, no_above=self.prune_at,
                                                keep_n=self.vocab_size,
                                                keep_tokens=['<pad>', '<s>', '</s>', '<unk>'])
 
             self.iterable = self._iterate()
 
         else: # Loading.
-            self.load(kwargs['loadfrom'], kwargs.get('load_counter', False))
+            self.load(kwargs['loadfrom'], filename,
+                      kwargs.get('load_counter', False))
             self.iterable = self._iterate()
 
-
     @timing
-    def load(self, loadfrom, load_counter=False):
+    def load(self, loadfrom=None, filename=None, load_counter=False):
         """
         The load function.
+
+        :param filename: Path to the filename of the corpus to read,
+                         this will overwrite filename in the TextData.json.
+        :type filename: str
+
         :param loadfrom: The path to load the directory for the ParallelData.
         :type loadfrom: str
+
         :param load_counter: Whether to load the src and trg bounter objects.
         :type load_counter: bool
         """
+        assert loadfrom is not None
         config_file = loadfrom + '/TextData.json'
         if not Path(config_file).exists():
             raise DataError('{} config file not found!!'.format(config_file))
@@ -124,48 +134,85 @@ class TextData(Iterator):
             with open(config_file) as fin:
                 self.__dict__ = json.load(fin)
 
-            with open(self.vocab, 'rb') as fin:
-                self.vocab = pickle.load(fin)
+            # If the data is saved with TextData.save(copy_data=True),
+            # it will appear in self.__dict__ and
+            # we set the filename from relative to absolute path
+            # if data is copied when saved, i.e. `filename` in self.__dict__
+            if 'filename' in self.__dict__:
+                self.filename = os.path.join(loadfrom, self.filename)
+            # If user specified filename when loading the TextData, e.g.
+            #   TextData(filename='path/to/textfile', loadfrom='...'),
+            # then we overwrite the filename.
+            elif filename:
+                self.filename = filename
+            else:
+                raise DataError("You need to set the filename when loading TextData, e.g.\n"
+                                "\tTextData(loadfrom='path/to/textdata', filename='inputfile.txt')")
+            # Check if the filename exists.
+            if not os.path.isfile(self.filename):
+                raise DataError("The text file at {} doesn't exist!!")
+
+            try:
+                with open(os.path.join(loadfrom, self.vocab), 'rb') as fin:
+                    self.vocab = pickle.load(fin)
+            except:
+                raise DataError("{}/vocab.pkl isn't found".format(loadfrom))
 
             if load_counter:
                 if ('counter' not in self.__dict__):
                     raise DataError('TextData counter not found!!')
-                with open(self.counter, 'rb') as fin:
+                with open(os.path.join(loadfrom, self.counter), 'rb') as fin:
                     self.counter = pickle.load(fin)
 
     @timing
-    def save(self, saveto, save_counter=False):
+    def save(self, saveto, save_counter=False, copy_data=False):
         """
         The save function.
         :param saveto: The path to save the directory for the TextData.
         :type saveto: str
         :param save_counter: Whether to save the bounter objects.
         :type save_counter: bool
+        :para copy_data: Make a local copy of the data.
+        :type copy_data: bool
         """
         print("Saving TextData to {saveto}".format(saveto=saveto), end=' ', file=sys.stderr)
         # Create the directory if it doesn't exist.
         if not Path(saveto).exists():
             os.makedirs(saveto)
+
         # Save the vocab files.
         with open(saveto+'/vocab.pkl', 'wb') as fout:
             pickle.dump(self.vocab, fout)
+        with open(saveto+'/vocab.tsv', 'w') as fout:
+            for idx, word in self.vocab.items():
+                print('\t'.join([str(idx), word]), end='\n', file=fout)
 
         # Initialize the config file.
-        config_json = {'filename': absolute_path(self.filename),
-                       'delimiter': self.delimiter, 'encoding': self.encoding,
+        config_json = {'delimiter': self.delimiter, 'encoding': self.encoding,
                        'PAD': self.PAD, 'PAD_IDX': self.PAD_IDX,
                        'START': self.START, 'START_IDX': self.START_IDX,
                        'END': self.END, 'END_IDX': self.END_IDX,
                        'UNK': self.UNK, 'UNK_IDX': self.UNK_IDX,
                        'vocab_size': self.vocab_size,
-                       'vocab': absolute_path(saveto+'/vocab.pkl')}
+                       'vocab': 'vocab.pkl'}
 
         # Check whether we should save the counter.
         if save_counter:
             with open(saveto+'/counter.pkl', 'wb') as fout:
                 pickle.dump(self.counter, fout)
+            with open(saveto+'/counter.tsv', 'w') as fout:
+                for word, count in self.counter.items():
+                    print('\t'.join([str(word), str(count)]), end='\n', file=fout)
 
-        config_json['counter'] = absolute_path(saveto+'/counter.pkl')
+        config_json['counter'] = 'counter.pkl' if save_counter else None
+
+        if copy_data:
+            _, _filename = os.path.split(self.filename) # Filename without path.
+            new_filename = os.path.join(saveto, _filename)
+            print('\n\tCopying {} \n\tto {}'.format(self.filename, new_filename),
+                  end='\n', file=sys.stderr)
+            copyfile(absolute_path(self.filename), new_filename)
+            config_json['filename'] = _filename
 
         # Dump the config file.
         with open(saveto+'/TextData.json', 'w') as fout:
@@ -192,7 +239,8 @@ class TextData(Iterator):
                 vocab.add_documents(chunk_list_of_tokens, self.prune_at)
                 counter.update(chain(*chunk_list_of_tokens))
 
-    def filter_n_least_frequent(self, vocab, counter, n):
+    def filter_n_least_frequent(self, vocab, counter, n,
+                                keep_tokens=['<pad>', '<s>', '</s>', '<unk>']):
         """
         Remove the least frequent items form the vocabulary.
         :param vocab: self.src_vocab or self.trg_vocab
@@ -207,6 +255,8 @@ class TextData(Iterator):
             good_ids = [vocab.token2id[token] for token, _ in
                        sorted(counter.items(), key=itemgetter(1))[-n:]
                        if token in vocab.token2id]
+            good_ids += [self.vocab.token2id[_keep] for _keep in keep_tokens]
+            print(good_ids)
             vocab.filter_tokens(good_ids=good_ids)
 
     def vectorize_sent(self, sent, vocab, pad_start=True, pad_end=True):
@@ -277,6 +327,3 @@ class TextData(Iterator):
 
     def shuffle(self):
         return iter(sorted(self, key=lambda k: random.random()))
-
-    def batch(self, size=1):
-        return itertools.islice
