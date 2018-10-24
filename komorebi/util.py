@@ -25,7 +25,7 @@ def timing(f, output_to=sys.stderr, **kwargs):
     """ Decorator to time function. """
     def wrap(*args, **kwargs):
         time_start = time.time()
-        ret = f(*args)
+        ret = f(*args, **kwargs)
         #took = time.time() - time_start
         took = time.strftime("%H:%M:%S", time.gmtime(time.time() - time_start))
         print('{} took {}'.format(f.__name__, took), file=output_to)
