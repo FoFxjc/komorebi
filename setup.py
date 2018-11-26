@@ -3,8 +3,8 @@ from distutils.core import setup
 setup(
   name = 'komorebi',
   packages = ['komorebi'],
-  version = '0.0.7',
-  description = 'Text Data API',
+  version = '0.0.8',
+  description = 'Text data plumbing',
   author = 'Liling Tan',
   license = 'MIT',
   package_data={'komorebi': ['data/kopitiam/*']},
