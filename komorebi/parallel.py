@@ -19,11 +19,22 @@ from komorebi.util import DataError
 
 class ParallelData(Iterator):
     def __init__(self,
-                 src_filename=None, trg_filename=None,
-                 src_vocab_size=10**5, trg_vocab_size=None,
-                 chunk_size=10**5, delimiter=None, size_mb=4024, pad_symbol='<pad>',
-                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='<unk>',
-                 filter_on='tf', prune_at=10**10, encoding='utf8',
+                 src_filename=None,
+                 trg_filename=None,
+                 src_vocab_size=10**5,
+                 trg_vocab_size=None,
+                 chunk_size=10**5,
+                 delimiter=None,
+                 size_mb=4024,
+                 pad_symbol='<pad>',
+                 start_symbol='<s>',
+                 end_symbol='</s>',
+                 unknown_symbol='<unk>',
+                 default_pad_start=False,
+                 default_pad_end=True,
+                 filter_on='tf',
+                 prune_at=10**10,
+                 encoding='utf8',
                  **kwargs):
         """
         This is the object to store parallel text and read them into vocabulary
@@ -57,11 +68,12 @@ class ParallelData(Iterator):
         """
 
         if 'loadfrom' not in kwargs: # Creating.
+            self.default_pad_start = default_pad_start
+            self.default_pad_end = default_pad_end
             print('Creating source TextData...', end='\n', file=sys.stderr)
             self.src_data = TextData(src_filename, src_vocab_size, **kwargs)
             print('Creating target TextData...', end='\n', file=sys.stderr)
             self.trg_data = TextData(trg_filename, trg_vocab_size, **kwargs)
-
             self.iterable = self._iterate()
 
         else: # Loading.
@@ -151,8 +163,12 @@ class ParallelData(Iterator):
         and convert the lines into vocabulary indices.
         """
         for src_line, trg_line in zip(self.src_data.lines(), self.trg_data.lines()):
-            src_sent = self.src_data.variable_from_sent(src_line, self.src_data.vocab)
-            trg_sent = self.trg_data.variable_from_sent(trg_line, self.trg_data.vocab)
+            src_sent = self.src_data.vectorize(src_line,
+                                               self.default_pad_start,
+                                               self.default_pad_end)
+            trg_sent = self.trg_data.vectorize(trg_line,
+                                               self.default_pad_start,
+                                               self.default_pad_end)
             yield src_sent, trg_sent
 
     def __next__(self):

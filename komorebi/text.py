@@ -24,10 +24,21 @@ from komorebi.util import DataError
 
 class TextData(Iterator):
     def __init__(self,
-                 filename=None, vocab_size=None, max_len=None,
-                 chunk_size=10**5, delimiter=None, size_mb=4024, pad_symbol='<pad>',
-                 start_symbol='<s>', end_symbol='</s>', unknown_symbol='<unk>',
-                 filter_on=None, prune_at=10**10, encoding='utf8',
+                 filename=None,
+                 vocab_size=None,
+                 max_len=None,
+                 chunk_size=10**5,
+                 delimiter=None,
+                 size_mb=4024,
+                 pad_symbol='<pad>',
+                 start_symbol='<s>',
+                 end_symbol='</s>',
+                 unknown_symbol='<unk>',
+                 default_pad_start=False,
+                 default_pad_end=True,
+                 filter_on=None,
+                 prune_at=10**10,
+                 encoding='utf8',
                  **kwargs):
         """
         This is the object to store text and read them into vocabulary
@@ -49,6 +60,10 @@ class TextData(Iterator):
         :type end_symbol: str
         :param unknown_symbol: Unknown symbol for OOV words.
         :type unknown_symbol: str
+        :param default_pad_start: By default, pad the <s> to sentence when vectorizing.
+        :type default_pad_start: bool
+        :param default_pad_end: By default, pad the </s> to sentence when vectorizing.
+        :type default_pad_end: bool
         :param filter_on: Option to filter on term-freq ('tf') or doc-freq ('df')
         :type filter_on: str
         :param prune_at: *prune_at* parameter used by gensim.Dictionary
@@ -69,6 +84,8 @@ class TextData(Iterator):
             self.START, self.START_IDX = start_symbol, 1
             self.END, self.END_IDX = end_symbol, 2
             self.UNK, self.UNK_IDX = unknown_symbol, 3
+            self.default_pad_start = default_pad_start
+            self.default_pad_end = default_pad_end
 
             # Save the user-specific delimiter
             self.delimiter = delimiter
@@ -194,7 +211,9 @@ class TextData(Iterator):
                        'END': self.END, 'END_IDX': self.END_IDX,
                        'UNK': self.UNK, 'UNK_IDX': self.UNK_IDX,
                        'vocab_size': self.vocab_size,
-                       'vocab': 'vocab.pkl'}
+                       'vocab': 'vocab.pkl',
+                       'default_pad_start': self.default_pad_start,
+                       'default_pad_end': self.default_pad_end}
 
         # Check whether we should save the counter.
         if save_counter:
@@ -259,44 +278,30 @@ class TextData(Iterator):
             print(good_ids)
             vocab.filter_tokens(good_ids=good_ids)
 
-    def vectorize_sent(self, sent, vocab, pad_start=True, pad_end=True):
+    def vectorize(self, sent, pad_start=True, pad_end=True):
         """
         Vectorize the sentence, converts it into a list of the indices based on
         the vocabulary. This is used by the `variable_from_sent()`.
         :param sent: The input sentence to convert to vocabulary indices
         :type sent: list(str)
-        :param vocab: self.src_vocab or self.trg_vocab
-        :type vocab: gensim.Dictionary
         :param pad_start: Pad the start with the START_IDX [default: True]
         :type pad_end: bool
         :param pad_end: Pad the start with the END_IDX [default: True]
         :type pad_end: bool
         """
         sent = self.split_tokens(sent) if type(sent) == str else sent
-        vsent = vocab.doc2idx(sent, unknown_word_index=self.UNK_IDX)
+        vsent = self.vocab.doc2idx(sent, unknown_word_index=self.UNK_IDX)
         if pad_start:
             vsent = [self.START_IDX] + vsent
         if pad_end:
             vsent = vsent + [self.END_IDX]
         return vsent
 
-    def variable_from_sent(self, sent, vocab):
-        """
-        Create the vocaburly indices given a sentence
-        :param sent: The input sentence to convert to vocaburly indices
-        :type sent: list(str) or str
-        :param vocab: self.src_vocab or self.trg_vocab
-        :type vocab: gensim.Dictionary
-        """
-        sent = self.split_tokens(sent) if type(sent) == str else sent
-        vsent = self.vectorize_sent(sent, vocab)
-        return vsent
-
-    def unvectorize(self, vector, vocab, unpad_left=True, unpad_right=True):
+    def unvectorize(self, vector, unpad_start=True, unpad_end=True):
         """
         Convert the vector to the natural text sentence.
         """
-        return ' '.join([vocab[idx] for idx in
+        return ' '.join([self.vocab[idx] for idx in
                          map(int,chain(*vector))][unpad_left:-unpad_right])
 
     def reset(self):
@@ -319,7 +324,7 @@ class TextData(Iterator):
         and convert the lines into vocabulary indices.
         """
         for line in self.lines():
-            sent = self.variable_from_sent(line, self.vocab)
+            sent = self.vectorize(line, self.default_pad_start, self.default_pad_end)
             yield sent
 
     def __next__(self):
